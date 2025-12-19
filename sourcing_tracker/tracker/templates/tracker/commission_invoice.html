@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Commission Invoice - {{ deal.item_name }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #f8f9fa;
+            padding: 40px;
+        }
+
+        .invoice {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .invoice-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #eee;
+        }
+
+        .company-name {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .invoice-title {
+            text-align: right;
+        }
+
+        .invoice-title h1 {
+            font-size: 28px;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .invoice-number {
+            color: #666;
+        }
+
+        .invoice-meta {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+
+        .meta-section h3 {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: #666;
+            margin-bottom: 10px;
+            letter-spacing: 0.5px;
+        }
+
+        .meta-section p {
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .invoice-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+
+        .invoice-table th {
+            background: #f8f9fa;
+            padding: 15px;
+            text-align: left;
+            font-size: 12px;
+            text-transform: uppercase;
+            color: #666;
+            letter-spacing: 0.5px;
+        }
+
+        .invoice-table td {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .invoice-table .amount {
+            text-align: right;
+            font-weight: 600;
+        }
+
+        .invoice-total {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 40px;
+        }
+
+        .total-box {
+            width: 300px;
+        }
+
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .total-row.grand-total {
+            border-bottom: none;
+            padding-top: 15px;
+            font-size: 18px;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .invoice-footer {
+            text-align: center;
+            padding-top: 30px;
+            border-top: 2px solid #eee;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .print-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+
+        .print-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        @media print {
+            body {
+                padding: 0;
+                background: white;
+            }
+
+            .invoice {
+                box-shadow: none;
+                padding: 20px;
+            }
+
+            .print-btn {
+                display: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="invoice">
+        <div class="invoice-header">
+            <div>
+                <div class="company-name">SourcingTracker</div>
+                <p style="color: #666; margin-top: 5px;">Procurement & Logistics Services</p>
+            </div>
+            <div class="invoice-title">
+                <h1>Commission Invoice</h1>
+                <p class="invoice-number">INV-{{ deal.id }}-{{ deal.updated_at|date:"Ymd" }}</p>
+            </div>
+        </div>
+
+        <div class="invoice-meta">
+            <div class="meta-section">
+                <h3>Bill To</h3>
+                <p>
+                    <strong>{{ deal.partner.name }}</strong><br>
+                    GST: {{ deal.partner.gst_number }}<br>
+                    {{ deal.partner.contact_info|default:"" }}
+                </p>
+            </div>
+            <div class="meta-section">
+                <h3>Invoice Details</h3>
+                <p>
+                    <strong>Date:</strong> {{ deal.updated_at|date:"d M Y" }}<br>
+                    <strong>End Client:</strong> {{ deal.client_name|default:"N/A" }}<br>
+                    <strong>Tracking:</strong> {{ deal.tracking_id|default:"N/A" }}
+                </p>
+            </div>
+        </div>
+
+        <table class="invoice-table">
+            <thead>
+                <tr>
+                    <th>Description</th>
+                    <th>Qty</th>
+                    <th>Deal Value</th>
+                    <th>Commission Rate</th>
+                    <th class="amount">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>
+                        <strong>{{ deal.item_name }}</strong><br>
+                        <small style="color: #666;">Procurement commission for sourcing and logistics</small>
+                    </td>
+                    <td>{{ deal.quantity }}</td>
+                    <td>₹{{ deal.actual_cost|floatformat:2 }}</td>
+                    <td>{{ deal.commission_percent }}%</td>
+                    <td class="amount">₹{{ commission_amount|floatformat:2 }}</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="invoice-total">
+            <div class="total-box">
+                <div class="total-row">
+                    <span>Subtotal</span>
+                    <span>₹{{ commission_amount|floatformat:2 }}</span>
+                </div>
+                <div class="total-row">
+                    <span>GST (18%)</span>
+                    <span>₹{{ commission_amount|floatformat:2|add:"0" }}</span>
+                </div>
+                <div class="total-row grand-total">
+                    <span>Total Due</span>
+                    <span>₹{{ commission_amount|floatformat:2 }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="invoice-footer">
+            <p>Thank you for your business!</p>
+            <p style="margin-top: 10px; font-size: 12px;">
+                This is a computer-generated invoice.
+            </p>
+        </div>
+    </div>
+
+    <button class="print-btn" onclick="window.print()">
+        🖨️ Print Invoice
+    </button>
+</body>
+
+</html>

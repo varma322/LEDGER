@@ -1,0 +1,195 @@
+{% extends 'tracker/base.html' %}
+
+{% block title %}Logistics - Sourcing Tracker{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="bi bi-truck me-2"></i>Logistics</h1>
+    <p class="mb-0">Track warehouse inventory and shipments</p>
+</div>
+
+<!-- In Warehouse / Shipping Section -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-box-seam me-2"></i>Pending Shipments</h5>
+        <span class="badge bg-warning text-dark">{{ deals|length }} items</span>
+    </div>
+    <div class="card-body p-0">
+        {% if deals %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Partner</th>
+                        <th>Client</th>
+                        <th>Cost</th>
+                        <th>Status</th>
+                        <th>Tracking</th>
+                        <th>Courier</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for deal in deals %}
+                    <tr class="animate-fade-in">
+                        <td>
+                            <strong>{{ deal.item_name }}</strong>
+                            <br><small class="text-muted">Qty: {{ deal.quantity }}</small>
+                        </td>
+                        <td>{{ deal.partner.name }}</td>
+                        <td>{{ deal.client_name|default:"—" }}</td>
+                        <td>₹{{ deal.actual_cost|floatformat:2|default:"—" }}</td>
+                        <td>
+                            <span
+                                class="badge-status badge-{% if deal.status == 'IN_WAREHOUSE' %}warehouse{% else %}shipped{% endif %}">
+                                {{ deal.get_status_display }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if deal.tracking_id %}
+                            <code>{{ deal.tracking_id }}</code>
+                            {% else %}
+                            <span class="text-muted">Not set</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ deal.courier_partner|default:"—" }}</td>
+                        <td>
+                            {% if deal.status == 'IN_WAREHOUSE' %}
+                            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal"
+                                data-bs-target="#shipModal{{ deal.id }}">
+                                <i class="bi bi-truck"></i> Ship
+                            </button>
+                            {% elif deal.status == 'SHIPPED' %}
+                            <form method="post" action="{% url 'mark_delivered' deal.id %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-success-gradient btn-gradient">
+                                    <i class="bi bi-check-circle"></i> Delivered
+                                </button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+
+                    <!-- Ship Modal -->
+                    <div class="modal fade" id="shipModal{{ deal.id }}" tabindex="-1">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content">
+                                <div class="modal-header border-0">
+                                    <h5 class="modal-title"><i class="bi bi-truck me-2"></i>Mark as Shipped</h5>
+                                    <button type="button" class="btn-close btn-close-white"
+                                        data-bs-dismiss="modal"></button>
+                                </div>
+                                <form method="post" action="{% url 'mark_shipped' deal.id %}">
+                                    {% csrf_token %}
+                                    <div class="modal-body">
+                                        <div class="mb-3">
+                                            <label class="form-label">Item</label>
+                                            <input type="text" class="form-control" value="{{ deal.item_name }}"
+                                                disabled>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Tracking ID <span
+                                                    class="text-danger">*</span></label>
+                                            <input type="text" name="tracking_id" class="form-control"
+                                                value="{{ deal.tracking_id }}" placeholder="Enter tracking number"
+                                                required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Courier Partner</label>
+                                            <input type="text" name="courier_partner" class="form-control"
+                                                value="{{ deal.courier_partner }}"
+                                                placeholder="e.g., Delhivery, BlueDart">
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer border-0">
+                                        <button type="button" class="btn btn-outline-light"
+                                            data-bs-dismiss="modal">Cancel</button>
+                                        <button type="submit" class="btn btn-gradient">
+                                            <i class="bi bi-truck me-1"></i>Mark Shipped
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="bi bi-box"></i>
+            <h5>No Pending Shipments</h5>
+            <p>Items will appear here when they're in the warehouse or being shipped</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Recently Delivered Section -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-check2-circle me-2"></i>Recently Delivered</h5>
+        <span class="badge bg-success">{{ delivered_deals|length }} completed</span>
+    </div>
+    <div class="card-body p-0">
+        {% if delivered_deals %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Partner</th>
+                        <th>Client</th>
+                        <th>Cost</th>
+                        <th>Commission</th>
+                        <th>Tracking</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for deal in delivered_deals %}
+                    <tr class="animate-fade-in">
+                        <td>
+                            <strong>{{ deal.item_name }}</strong>
+                            <br><small class="text-muted">Qty: {{ deal.quantity }}</small>
+                        </td>
+                        <td>{{ deal.partner.name }}</td>
+                        <td>{{ deal.client_name|default:"—" }}</td>
+                        <td>₹{{ deal.actual_cost|floatformat:2|default:"—" }}</td>
+                        <td>
+                            <span class="text-success">
+                                ₹{{ deal.commission_amount|floatformat:2 }}
+                            </span>
+                            <br><small class="text-muted">{{ deal.commission_percent }}%</small>
+                        </td>
+                        <td>
+                            {% if deal.tracking_id %}
+                            <code>{{ deal.tracking_id }}</code>
+                            <br><small class="text-muted">{{ deal.courier_partner }}</small>
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'commission_invoice' deal.id %}" class="btn btn-sm btn-outline-success"
+                                target="_blank">
+                                <i class="bi bi-receipt"></i> Invoice
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="bi bi-check2-circle"></i>
+            <h5>No Deliveries Yet</h5>
+            <p>Completed deliveries will appear here</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
