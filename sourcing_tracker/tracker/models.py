@@ -70,6 +70,15 @@ class Transaction(models.Model):
         return f"{self.partner.name} - {self.get_transaction_type_display()} - ₹{self.amount}"
 
 
+import uuid
+from django.utils import timezone as tz
+
+def generate_reference():
+    """Generate a unique reference number for deals."""
+    date_str = tz.now().strftime('%Y%m%d')
+    return f"DEAL-{date_str}-{uuid.uuid4().hex[:4].upper()}"
+
+
 class Deal(models.Model):
     """Model representing a procurement deal/order."""
     
@@ -82,15 +91,26 @@ class Deal(models.Model):
         ('RETURNED', 'Returned'),
     ]
     
+    # Auto-generated reference number
+    reference = models.CharField(
+        max_length=20, 
+        unique=True, 
+        default=generate_reference,
+        editable=False,
+        verbose_name="Reference"
+    )
+    
     partner = models.ForeignKey(
         Partner, 
         on_delete=models.CASCADE, 
         related_name='deals'
     )
-    item_name = models.CharField(max_length=300, verbose_name="Item Name")
+    
+    # Legacy fields - kept for backward compatibility with existing deals
+    item_name = models.CharField(max_length=300, verbose_name="Item Name", blank=True)
     quantity = models.PositiveIntegerField(default=1)
     
-    # Financials
+    # Financials (legacy - now calculated from DealItems)
     estimated_cost = models.DecimalField(
         max_digits=12, 
         decimal_places=2, 
@@ -153,11 +173,29 @@ class Deal(models.Model):
         ordering = ['-created_at']
     
     def __str__(self):
-        return f"{self.item_name} - {self.partner.name} ({self.get_status_display()})"
+        return f"{self.reference} - {self.partner.name} ({self.get_status_display()})"
+    
+    @property
+    def total_amount(self):
+        """Calculate total amount from all deal items."""
+        return sum(item.total for item in self.items.all())
+    
+    @property
+    def total_commission(self):
+        """Calculate total commission from all deal items."""
+        return sum(item.commission_total for item in self.items.all())
+    
+    @property
+    def total_quantity(self):
+        """Calculate total quantity from all deal items."""
+        return sum(item.quantity for item in self.items.all())
     
     @property
     def commission_amount(self):
-        """Calculate the commission amount based on actual_cost."""
+        """Calculate the commission amount - uses new item-based calculation if items exist."""
+        if self.items.exists():
+            return self.total_commission
+        # Legacy calculation for old deals
         if self.actual_cost and self.commission_percent:
             return (self.actual_cost * self.commission_percent) / 100
         return Decimal('0.00')
@@ -168,3 +206,46 @@ class Deal(models.Model):
         if self.actual_cost and self.estimated_cost:
             return self.actual_cost > self.estimated_cost
         return False
+
+
+class DealItem(models.Model):
+    """Model representing an individual item in a deal."""
+    
+    deal = models.ForeignKey(
+        Deal,
+        on_delete=models.CASCADE,
+        related_name='items'
+    )
+    item_name = models.CharField(max_length=300, verbose_name="Item Name")
+    quantity = models.PositiveIntegerField(default=1, verbose_name="Quantity")
+    item_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        verbose_name="Item Price (per unit)"
+    )
+    commission_per_item = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        verbose_name="Commission per Item"
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    history = HistoricalRecords()
+    
+    class Meta:
+        ordering = ['created_at']
+    
+    def __str__(self):
+        return f"{self.item_name} x{self.quantity}"
+    
+    @property
+    def total(self):
+        """Calculate total: quantity * item_price"""
+        return self.item_price * self.quantity
+    
+    @property
+    def commission_total(self):
+        """Calculate total commission: commission_per_item * quantity"""
+        return self.commission_per_item * self.quantity
